@@ -9,10 +9,12 @@ using System.Net;
 using System.Text.Json;
 
 
-namespace AGTPolicyWithMAFApp02 {
+namespace AGTPolicyWithMAFApp02
+{
 
 
-    class Program {
+    class Program
+    {
 
         [Description("Get weather information for a location.")]
         static string GetWeather([Description("Target city name")] string city)
@@ -54,7 +56,17 @@ namespace AGTPolicyWithMAFApp02 {
                     {
                         DefaultAgentId = agentName,
                         EnableFunctionMiddleware = true,
-                        BlockedToolResultFactory = toolResult => $"The result of tool '{toolResult.AuditEntry}' is blocked by governance policy.",
+                        BlockedToolResultFactory = toolResult =>
+                        {
+                            Console.WriteLine($"[BLOCKED TOOL] {toolResult.AuditEntry.PolicyName}: {toolResult.Reason}");
+                            return $"'{toolResult.AuditEntry.AgentId}' was blocked for tool calling";
+                        }
+                        //,
+                        //BlockedRunResponseFactory = decision =>
+                        //{
+                        //    Console.WriteLine($"[BLOCKED RUN] Reason: {decision.Reason}");
+                        //    return new AgentResponse(new ChatMessage(ChatRole.User, "You can this process beacuse your operation was blocked."));
+                        //}
                     });
 
             // Agent will be block for tool calling and the second question will be allowed.
