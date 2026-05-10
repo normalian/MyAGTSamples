@@ -1,0 +1,9 @@
+apiVersion: governance.toolkit/v1
+version: "1.0"
+name: default-governance-policy
+default_action: allow
+rules:
+  - name: deny-weather-tools
+    condition: "tool_name == 'GetWeather'"
+    action: deny
+    priority: 100
