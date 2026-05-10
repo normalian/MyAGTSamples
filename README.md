@@ -1,4 +1,4 @@
-# MyAGTSapmles
+# MyAGTSamples
 
 A minimal .NET 9 console sample that demonstrates policy-driven tool governance using `Microsoft.AgentGovernance`.
 
@@ -23,7 +23,7 @@ The sample shows how to:
 
 ## Repository Structure
 
-- `MyAGTSapmles.sln`: Solution file.
+- `MyAGTSamples.sln`: Solution file.
 - `AGTPolicyApp01/AGTPolicyApp01.csproj`: Console app project.
 - `AGTPolicyApp01/Program.cs`: Sample governance runtime setup and evaluation calls.
 - `AGTPolicyApp01/policies/default.yaml`: Default governance policy.
@@ -48,7 +48,7 @@ dotnet restore
 ```
 
 ```powershell
-dotnet build MyAGTSapmles.sln
+dotnet build MyAGTSamples.sln
 ```
 
 Run the sample app:
@@ -94,7 +94,7 @@ dotnet format
 3. Ensure build passes locally:
 
 ```powershell
-dotnet build MyAGTSapmles.sln
+dotnet build MyAGTSamples.sln
 ```
 
 4. Open a pull request with:
