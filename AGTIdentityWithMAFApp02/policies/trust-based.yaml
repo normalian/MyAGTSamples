@@ -1,0 +1,23 @@
+apiVersion: governance.toolkit/v1
+version: "1.0"
+name: trust-based-access-control
+description: "Trust score based tool access control policy"
+default_action: allow
+
+terms:
+  - name: "trust-terms"
+    version: "1.0"
+    accepted: true
+
+rules:
+  - name: allow-weather-tools
+    description: "Allow weather and time tools for agents with sufficient trust"
+    condition: "tool_name in ['GetWeather', 'GetTime']"
+    action: allow
+
+  - name: block-untrusted-agents
+    description: "Block tool calls from agents with trust score below threshold"
+    condition: "trust_score < 500"
+    action: deny
+    message: "Agent trust score is below the required threshold (500)"
+
