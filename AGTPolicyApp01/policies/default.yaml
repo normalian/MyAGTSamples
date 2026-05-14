@@ -3,16 +3,6 @@ version: "1.0"
 name: default-governance-policy
 default_action: deny
 rules:
-  - name: allow-read-tools
-    condition: "tool_name in allowed_tools"
-    action: allow
-    priority: 10
-
-  - name: block-dangerous
-    condition: "tool_name in blocked_tools"
-    action: deny
-    priority: 100
-
   - name: rate-limit-api
     condition: "tool_name == 'http_request'"
     action: rate_limit

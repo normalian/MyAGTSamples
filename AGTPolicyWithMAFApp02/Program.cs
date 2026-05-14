@@ -61,20 +61,46 @@ namespace AGTPolicyWithMAFApp02
                             Console.WriteLine($"[BLOCKED TOOL] {toolResult.AuditEntry.PolicyName}: {toolResult.Reason}");
                             return $"'{toolResult.AuditEntry.AgentId}' was blocked for tool calling";
                         }
-                        //,
-                        //BlockedRunResponseFactory = decision =>
-                        //{
-                        //    Console.WriteLine($"[BLOCKED RUN] Reason: {decision.Reason}");
-                        //    return new AgentResponse(new ChatMessage(ChatRole.User, "You can this process beacuse your operation was blocked."));
-                        //}
                     });
+
+
 
             // Agent will be block for tool calling and the second question will be allowed.
             var response1 = await agent.RunAsync("What is the weather in Seattle?");
-            Console.WriteLine($"Agent response1: {response1}");
+            Console.WriteLine("Agent response1:");
+            foreach (var message in response1.Messages)
+            {
+                Console.WriteLine($"  Role: {message.Role}");
+                foreach (var content in message.Contents)
+                {
+                    var contentText = content switch
+                    {
+                        TextContent tc => $"    Text: {tc.Text}",
+                        FunctionCallContent fc => $"    FunctionCall: {fc.Name}({JsonSerializer.Serialize(fc.Arguments)})",
+                        FunctionResultContent fr => $"    FunctionResult: {fr.CallId} = {fr.Result}",
+                        _ => $"    {content.GetType().Name}: {content}"
+                    };
+                    Console.WriteLine(contentText);
+                }
+            }
 
             var response2 = await agent.RunAsync("Who you are?");
-            Console.WriteLine($"Agent response2: {response2}");
+            Console.WriteLine("Agent response2:");
+            foreach (var message in response2.Messages)
+            {
+                Console.WriteLine($"  Role: {message.Role}");
+                foreach (var content in message.Contents)
+                {
+                    var contentText = content switch
+                    {
+                        TextContent tc => $"    Text: {tc.Text}",
+                        FunctionCallContent fc => $"    FunctionCall: {fc.Name}({JsonSerializer.Serialize(fc.Arguments)})",
+                        FunctionResultContent fr => $"    FunctionResult: {fr.CallId} = {fr.Result}",
+                        _ => $"    {content.GetType().Name}: {content}"
+                    };
+                    Console.WriteLine(contentText);
+                }
+            }
         }
     }
 }
