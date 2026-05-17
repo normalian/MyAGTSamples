@@ -1,119 +1,151 @@
 # MyAGTSamples
 
-A minimal .NET 9 console sample that demonstrates policy-driven tool governance using `Microsoft.AgentGovernance`.
+Sample .NET console applications for Microsoft Agent Governance scenarios.
 
-## Overview
+This repository includes five focused examples that cover policy evaluation, agent identity and trust, Microsoft Agent Framework (MAF) integration, and audit/telemetry export.
 
-This repository contains a single application:
+## What's in this repository
 
-- `AGTPolicyApp01`: Evaluates tool calls against a YAML governance policy before execution.
+| Project | Focus | Target Framework |
+|---|---|---|
+| `AGTPolicyApp01` | Basic policy-driven tool call evaluation with a local YAML policy | `net9.0` |
+| `AGTPolicyWithMAFApp02` | MAF + Azure OpenAI with governance middleware and tool blocking | `net9.0` |
+| `AGTIdentityApp01` | Agent identity (DID/public key) and trust score basics | `net9.0` |
+| `AGTIdentityWithMAFApp02` | Trust-score-aware tool execution in a MAF agent flow | `net9.0` |
+| `AGTAuditBlobTelemetryApp01` | Governance audit to Azure Blob + telemetry to Application Insights | `net8.0` |
 
-The sample shows how to:
+## Solution structure
 
-- Load governance policy files from disk.
-- Configure governance runtime options (rings, prompt-injection detection, circuit breaker).
-- Evaluate tool calls and inspect allow/deny outcomes.
-
-## Tech Stack
-
-- .NET SDK: 9.0
-- Language: C#
-- Package: `Microsoft.AgentGovernance` (3.5.0)
-- Policy format: YAML
-
-## Repository Structure
-
-- `MyAGTSamples.sln`: Solution file.
-- `AGTPolicyApp01/AGTPolicyApp01.csproj`: Console app project.
-- `AGTPolicyApp01/Program.cs`: Sample governance runtime setup and evaluation calls.
-- `AGTPolicyApp01/policies/default.yaml`: Default governance policy.
+- `MyAGTSamples.sln` contains all five projects above.
+- Policy files are under each project's `policies/` folder where applicable.
+- `AGTAuditBlobTelemetryApp01` also includes `BlobAuditSink.cs` and a project-level README with deep details.
 
 ## Prerequisites
 
-1. Install .NET 9 SDK.
-2. Use PowerShell, Terminal, or Command Prompt on Windows/macOS/Linux.
+1. .NET SDKs:
+   - .NET 9 SDK
+2. Azure CLI (`az`) signed in when running MAF/OpenAI samples that use `AzureCliCredential`.
+3. Access to Azure OpenAI (for MAF/OpenAI-based projects).
 
-Check your SDK:
+Check installed SDKs:
 
 ```powershell
-dotnet --version
+dotnet --list-sdks
 ```
 
-## Build and Run
+## Build all projects
 
-From the repository root:
+From repository root:
 
 ```powershell
 dotnet restore
-```
-
-```powershell
 dotnet build MyAGTSamples.sln
 ```
 
-Run the sample app:
+## Run each sample
+
+From repository root:
+
+### 1) AGTPolicyApp01
 
 ```powershell
 dotnet run --project AGTPolicyApp01/AGTPolicyApp01.csproj
 ```
 
-## Policy Notes
+Behavior:
+- Loads `AGTPolicyApp01/policies/default.yaml`
+- Evaluates sample tool calls (for example `file_write`, `http_request`)
+- Prints allow/deny results
 
-The default policy file is at:
-
-- `AGTPolicyApp01/policies/default.yaml`
-
-Current policy behavior includes:
-
-- Default action is `deny`.
-- A rule to allow tools in `allowed_tools`.
-- A rule to deny tools in `blocked_tools`.
-- A rate-limit rule for `http_request` (`100/minute`).
-
-The project copies `policies/default.yaml` to output on build, so runtime policy loading works from the app output folder.
-
-## Development Workflow
-
-Typical inner loop:
+### 2) AGTIdentityApp01
 
 ```powershell
-dotnet build AGTPolicyApp01/AGTPolicyApp01.csproj
-dotnet run --project AGTPolicyApp01/AGTPolicyApp01.csproj
+dotnet run --project AGTIdentityApp01/AGTIdentityApp01.csproj
 ```
 
-Optional formatting and checks:
+Behavior:
+- Creates an agent identity
+- Prints DID/public key/status
+- Loads trust score from a local file trust store
+
+### 3) AGTPolicyWithMAFApp02
+
+Required environment variables:
+- `AZURE_OPENAI_ENDPOINT`
+- `AZURE_OPENAI_DEPLOYMENT_NAME` (optional, default in code: `gpt-4.1-mini`)
+
+Run:
 
 ```powershell
-dotnet format
+dotnet run --project AGTPolicyWithMAFApp02/AGTPolicyWithMAFApp02.csproj
 ```
 
-## Contributing
+Behavior:
+- Uses governance middleware with MAF tools
+- Applies policy from `AGTPolicyWithMAFApp02/policies/default.yaml`
+- Demonstrates a blocked `GetWeather` call and a normal non-tool response
 
-1. Create a feature branch.
-2. Make focused changes with clear commit messages.
-3. Ensure build passes locally:
+### 4) AGTIdentityWithMAFApp02
+
+Required environment variables:
+- `AZURE_OPENAI_ENDPOINT`
+- `AZURE_OPENAI_DEPLOYMENT_NAME` (optional, default in code: `gpt-4.1-mini`)
+
+Run:
 
 ```powershell
-dotnet build MyAGTSamples.sln
+dotnet run --project AGTIdentityWithMAFApp02/AGTIdentityWithMAFApp02.csproj
 ```
 
-4. Open a pull request with:
+Behavior:
+- Uses trust-based policy from `AGTIdentityWithMAFApp02/policies/trust-based.yaml`
+- Starts at trust score 500, then applies a penalty
+- Shows first tool call allowed and second tool call blocked
 
-- What changed
-- Why it changed
-- How it was tested
+### 5) AGTAuditBlobTelemetryApp01
 
-## Troubleshooting
+Required environment variables:
+- `AZURE_OPENAI_ENDPOINT`
+- `AZURE_OPENAI_DEPLOYMENT` (optional, default in code: `gpt-4o-mini`)
+- `APPLICATIONINSIGHTS_CONNECTION_STRING`
+- `AZURE_STORAGE_ACCOUNT_NAME`
 
-- SDK not found:
-  - Install .NET 9 SDK and restart terminal.
-- Policy file not loaded:
-  - Confirm `AGTPolicyApp01/policies/default.yaml` exists.
-  - Rebuild to ensure file is copied to output.
-- Package restore issues:
-  - Verify internet access to NuGet.
-  - Run `dotnet nuget locals all --clear` and retry restore.
+Optional:
+- `AZURE_TENANT_ID`
+- `AUDIT_STORAGE_CONTAINER` (default: `agt-audit`)
 
-## License
+Run:
 
-Add your preferred license in a `LICENSE` file.
+```powershell
+dotnet run --project AGTAuditBlobTelemetryApp01/AGTAuditBlobTelemetryApp01.csproj
+```
+
+Behavior:
+- Writes governance events to an Azure Blob append blob (JSONL)
+- Exports logs/metrics/traces via Azure Monitor OpenTelemetry exporter
+- Demonstrates allow/deny policy decisions and direct governance evaluation
+
+## Policy files
+
+| File | Default action | Notable rule |
+|---|---|---|
+| `AGTPolicyApp01/policies/default.yaml` | `deny` | Rate limits `http_request` at `100/minute` |
+| `AGTPolicyWithMAFApp02/policies/default.yaml` | `allow` | Denies `GetWeather` |
+| `AGTIdentityWithMAFApp02/policies/trust-based.yaml` | `allow` | Denies calls when `trust_score < 500` |
+| `AGTAuditBlobTelemetryApp01/policies/default.yaml` | `deny` | Allows specific tools and denies `execute_shell` |
+
+## Common troubleshooting
+
+- Build fails due to SDK mismatch:
+  - Install missing .NET SDK version (8 and/or 9), then re-run `dotnet build`.
+- Azure auth errors:
+  - Run `az login` and verify the active subscription/tenant.
+- Environment variable errors:
+  - Confirm required variables are set for the project you run.
+- Policy file not found:
+  - Build first so policy files are copied to output directories.
+
+## Notes
+
+- This repository intentionally mixes simple local-only samples and Azure-connected samples.
+- For deeper audit/telemetry details, see `AGTAuditBlobTelemetryApp01/README.md`.
