@@ -1,0 +1,32 @@
+# AGT MCP Governed Server - Default Policy
+# default_action: deny — only explicitly allowed tools can be invoked.
+version: "1.0"
+default_action: deny
+
+rules:
+  - name: allow-safe-tools
+    description: "Allow read-only / safe tools for all agents"
+    match:
+      tools:
+        - "weather_lookup"
+        - "stock_price"
+        - "knowledge_search"
+    action: allow
+
+  - name: block-unsafe-tools
+    description: "Explicitly block dangerous tools even if added later"
+    match:
+      tools:
+        - "file_write"
+        - "shell_exec"
+        - "db_drop"
+    action: deny
+    flags:
+      - FailOnUnsafeTools
+
+  - name: sanitize-all-responses
+    description: "Strip PII and secrets from tool responses"
+    match:
+      tools: ["*"]
+    modifiers:
+      - SanitizeResponses

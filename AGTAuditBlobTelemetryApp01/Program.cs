@@ -32,10 +32,10 @@ internal static class Program
         Banner("AGT Audit to Blob + Telemetry to Application Insights");
 
         // Configuration from environment variables
-        var endpoint = Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT") 
-            ?? throw new InvalidOperationException("AZURE_OPENAI_ENDPOINT environment variable is not set.");
+        var endpoint = Environment.GetEnvironmentVariable("MS_FOUNDRY_ENDPOINT") 
+            ?? throw new InvalidOperationException("MS_FOUNDRY_ENDPOINT environment variable is not set.");
         var deploymentName = Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT") 
-            ?? "gpt-4o-mini";
+            ?? "gpt-5.4-mini";
         var applicationInsightsConnectionString = Environment.GetEnvironmentVariable("APPLICATIONINSIGHTS_CONNECTION_STRING") 
             ?? throw new InvalidOperationException("APPLICATIONINSIGHTS_CONNECTION_STRING environment variable is not set.");
         var storageAccountName = Environment.GetEnvironmentVariable("AZURE_STORAGE_ACCOUNT_NAME") 
@@ -312,12 +312,6 @@ internal static class Program
                 Console.WriteLine(contentText);
             }
         }
-    }
-
-    private static string GetRequiredEnvironmentVariable(string name)
-    {
-        return Environment.GetEnvironmentVariable(name)
-            ?? throw new InvalidOperationException($"{name} is not set.");
     }
 
     private static void Banner(string title)

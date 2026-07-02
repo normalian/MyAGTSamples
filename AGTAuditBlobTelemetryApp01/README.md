@@ -72,12 +72,16 @@ Tool invocations are controlled by `policies/default.yaml` using a **deny-by-def
 |---------|---------|
 | `Azure.AI.OpenAI` | 2.9.0-beta.1 |
 | `Azure.Identity` | 1.21.0 |
-| `Azure.Monitor.OpenTelemetry.Exporter` | 1.8.0 |
-| `Azure.Storage.Blobs` | 12.29.0-beta.1 |
-| `Microsoft.AgentGovernance` | 3.6.0 |
-| `Microsoft.AgentGovernance.Extensions.Microsoft.Agents` | 3.6.0 |
-| `Microsoft.Agents.AI.OpenAI` | 1.6.1 |
-| `OpenTelemetry` | 1.15.3 |
+| `Azure.Monitor.OpenTelemetry.Exporter` | 1.8.2 |
+| `Azure.Storage.Blobs` | 12.29.1 |
+| `Microsoft.AgentGovernance` | 4.0.0 |
+| `Microsoft.AgentGovernance.Extensions.Microsoft.Agents` | 4.0.0 |
+| `Microsoft.Agents.AI.OpenAI` | 1.12.0 |
+| `OpenTelemetry` | 1.16.0 |
+
+## Target Framework
+
+- `.NET 10`
 
 ## License
 
