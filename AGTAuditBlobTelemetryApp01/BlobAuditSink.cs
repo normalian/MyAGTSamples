@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
-
 using AgentGovernance.Audit;
 using Azure.Identity;
 using Azure.Storage.Blobs;
