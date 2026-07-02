@@ -31,75 +31,94 @@ internal static class Program
 
         Banner("AGT Audit to Blob + Telemetry to Application Insights");
 
-        // Configuration from environment variables
-        var endpoint = Environment.GetEnvironmentVariable("MS_FOUNDRY_ENDPOINT") 
-            ?? throw new InvalidOperationException("MS_FOUNDRY_ENDPOINT environment variable is not set.");
-        var deploymentName = Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT") 
-            ?? "gpt-5.4-mini";
-        var applicationInsightsConnectionString = Environment.GetEnvironmentVariable("APPLICATIONINSIGHTS_CONNECTION_STRING") 
-            ?? throw new InvalidOperationException("APPLICATIONINSIGHTS_CONNECTION_STRING environment variable is not set.");
-        var storageAccountName = Environment.GetEnvironmentVariable("AZURE_STORAGE_ACCOUNT_NAME") 
-            ?? throw new InvalidOperationException("AZURE_STORAGE_ACCOUNT_NAME environment variable is not set.");
-        var storageAccountUri = $"https://{storageAccountName}.blob.core.windows.net/";
-        var auditContainerName = Environment.GetEnvironmentVariable("AUDIT_STORAGE_CONTAINER") ?? "agt-audit";
+        var config = AppConfiguration.LoadFromEnvironment();
+        var credential = config.CreateCredential();
 
-        // Azure AD Tenant ID (optional - uses default tenant if not specified)
-        var tenantId = Environment.GetEnvironmentVariable("AZURE_TENANT_ID");
+        var agent = CreateAgentIdentity();
+        DisplayAgentInfo(agent, config);
 
-        // Shared Azure CLI credential for both OpenAI and Blob Storage
-        var credential = tenantId is not null
-            ? new AzureCliCredential(new AzureCliCredentialOptions { TenantId = tenantId })
-            : new AzureCliCredential();
+        using var loggerFactory = CreateLoggerFactory(config.ApplicationInsightsConnectionString);
+        var logger = loggerFactory.CreateLogger("AgentGovernance.Examples");
 
-        var agent = AgentIdentity.Create(
+        var telemetryProviders = CreateTelemetryProviders(config.ApplicationInsightsConnectionString);
+        using var meterProvider = telemetryProviders.MeterProvider;
+        using var tracerProvider = telemetryProviders.TracerProvider;
+        LogTelemetryInitialization(logger);
+
+        using var auditSink = new BlobAuditSink(
+            config.StorageAccountUri,
+            credential,
+            config.AuditContainerName,
+            blobName: $"governance-audit-{DateTime.UtcNow:yyyyMMdd}.jsonl");
+
+        var kernel = CreateGovernanceKernel();
+        RegisterEventHandler(kernel, auditSink, logger);
+
+        var chatClient = new AzureOpenAIClient(new Uri(config.OpenAIEndpoint), credential)
+            .GetChatClient(config.DeploymentName)
+            .AsIChatClient();
+
+        var aiAgent = CreateAIAgent(chatClient, agent, kernel, logger);
+
+        await RunAgentQuery(aiAgent, "What is the weather in Seattle?", 1, logger);
+        await RunAgentQuery(aiAgent, "What time is it in Tokyo?", 2, logger);
+        await RunAgentQuery(aiAgent, "Where is Paris located?", 3, logger);
+
+        EvaluateDirectGovernance(kernel, agent.Did, "GetLocation", new() { ["city"] = "London" }, logger, expectAllow: true);
+        EvaluateDirectGovernance(kernel, agent.Did, "execute_shell", new() { ["cmd"] = "rm -rf /" }, logger, expectAllow: false);
+
+        await FlushTelemetry(meterProvider, tracerProvider, loggerFactory, logger);
+    }
+
+    private static AgentIdentity CreateAgentIdentity() =>
+        AgentIdentity.Create(
             name: "WeatherAgent",
             sponsor: "alice@company.com",
             capabilities: ["read:weather", "read:time"],
             organization: "Analytics");
 
+    private static void DisplayAgentInfo(AgentIdentity agent, AppConfiguration config)
+    {
         Console.WriteLine($"Agent DID: {agent.Did}");
         Console.WriteLine($"Agent Status: {agent.Status}");
         Console.WriteLine($"Telemetry: Application Insights via {nameof(AzureMonitorExporterOptions)}");
-        Console.WriteLine($"Audit: Azure Blob Storage container '{auditContainerName}'");
+        Console.WriteLine($"Audit: Azure Blob Storage container '{config.AuditContainerName}'");
         Console.WriteLine();
+    }
 
-        // Configure logging
-        using var loggerFactory = LoggerFactory.Create(builder =>
+    private static ILoggerFactory CreateLoggerFactory(string connectionString) =>
+        LoggerFactory.Create(builder =>
         {
             builder.AddOpenTelemetry(logging =>
-            {
-                logging.AddAzureMonitorLogExporter(options =>
-                {
-                    options.ConnectionString = applicationInsightsConnectionString;
-                });
-            });
+                logging.AddAzureMonitorLogExporter(options => options.ConnectionString = connectionString));
             builder.SetMinimumLevel(LogLevel.Information);
         });
-        var logger = loggerFactory.CreateLogger("AgentGovernance.Examples");
 
-        // Configure OpenTelemetry with Metrics and Traces
+    private static TelemetryProviders CreateTelemetryProviders(string connectionString)
+    {
         var resourceBuilder = ResourceBuilder.CreateDefault()
             .AddService("AuditBlobTelemetry", serviceVersion: "1.0.0");
 
-        using var meterProvider = Sdk.CreateMeterProviderBuilder()
+        var meterProvider = Sdk.CreateMeterProviderBuilder()
             .SetResourceBuilder(resourceBuilder)
             .AddMeter(GovernanceMetrics.MeterName)
-            .AddAzureMonitorMetricExporter(options =>
-            {
-                options.ConnectionString = applicationInsightsConnectionString;
-            })
+            .AddAzureMonitorMetricExporter(options => options.ConnectionString = connectionString)
             .Build();
 
-        using var tracerProvider = Sdk.CreateTracerProviderBuilder()
+        var tracerProvider = Sdk.CreateTracerProviderBuilder()
             .SetResourceBuilder(resourceBuilder)
             .AddSource(GovernanceMetrics.MeterName)
             .AddSource(ActivitySource.Name)
-            .AddAzureMonitorTraceExporter(options =>
-            {
-                options.ConnectionString = applicationInsightsConnectionString;
-            })
+            .AddAzureMonitorTraceExporter(options => options.ConnectionString = connectionString)
             .Build();
 
+        return new TelemetryProviders(meterProvider, tracerProvider);
+    }
+
+    private sealed record TelemetryProviders(MeterProvider MeterProvider, TracerProvider TracerProvider);
+
+    private static void LogTelemetryInitialization(ILogger logger)
+    {
         logger.LogInformation("✓ OpenTelemetry providers initialized");
         logger.LogInformation("  - Metrics: {MeterName}", GovernanceMetrics.MeterName);
         logger.LogInformation("  - Traces: {ActivitySourceName}", ActivitySource.Name);
@@ -110,20 +129,18 @@ internal static class Program
         Console.WriteLine($"  - Traces: {ActivitySource.Name}");
         Console.WriteLine($"  - Logs: AgentGovernance.Examples");
         Console.WriteLine();
+    }
 
-        using var auditSink = new BlobAuditSink(
-            storageAccountUri,
-            credential,
-            auditContainerName,
-            blobName: $"governance-audit-{DateTime.UtcNow:yyyyMMdd}.jsonl");
-
-        var kernel = new GovernanceKernel(new GovernanceOptions
+    private static GovernanceKernel CreateGovernanceKernel() =>
+        new(new GovernanceOptions
         {
             PolicyPaths = [Path.Join(AppContext.BaseDirectory, "policies", "default.yaml")],
             ConflictStrategy = ConflictResolutionStrategy.DenyOverrides,
             EnablePromptInjectionDetection = true,
         });
 
+    private static void RegisterEventHandler(GovernanceKernel kernel, BlobAuditSink auditSink, ILogger logger)
+    {
         kernel.OnAllEvents(evt =>
         {
             using var activity = ActivitySource.StartActivity($"GovernanceEvent.{evt.Type}", ActivityKind.Internal);
@@ -141,125 +158,91 @@ internal static class Program
                 evt.AgentId);
             Console.WriteLine($"[Audit -> Blob] {evt.Type} policy={evt.PolicyName ?? "(none)"} tool={evt.Data.GetValueOrDefault("tool_name", "(unknown)")}");
         });
+    }
 
-        var chatClient = new AzureOpenAIClient(new Uri(endpoint), credential)
-            .GetChatClient(deploymentName)
-            .AsIChatClient();
-
-        AIAgent CreateAgent()
-        {
-            return chatClient
-                .AsAIAgent(
-                    name: agent.Name,
-                    instructions: "You are a helpful assistant that provides weather, time, and location information.",
-                    tools:
-                    [
-                        AIFunctionFactory.Create(GetWeather, name: "GetWeather"),
-                        AIFunctionFactory.Create(GetTime, name: "GetTime"),
-                        AIFunctionFactory.Create(GetLocation, name: "GetLocation")
-                    ])
-                .WithGovernance(
-                    kernel,
-                    new AgentFrameworkGovernanceOptions
+    private static AIAgent CreateAIAgent(IChatClient chatClient, AgentIdentity agent, GovernanceKernel kernel, ILogger logger) =>
+        chatClient
+            .AsAIAgent(
+                name: agent.Name,
+                instructions: "You are a helpful assistant that provides weather, time, and location information.",
+                tools:
+                [
+                    AIFunctionFactory.Create(GetWeather, name: "GetWeather"),
+                    AIFunctionFactory.Create(GetTime, name: "GetTime"),
+                    AIFunctionFactory.Create(GetLocation, name: "GetLocation")
+                ])
+            .WithGovernance(
+                kernel,
+                new AgentFrameworkGovernanceOptions
+                {
+                    DefaultAgentId = agent.Did,
+                    EnableFunctionMiddleware = true,
+                    BlockedToolResultFactory = toolResult =>
                     {
-                        DefaultAgentId = agent.Did,
-                        EnableFunctionMiddleware = true,
-                        BlockedToolResultFactory = toolResult =>
-                        {
-                            logger.LogWarning(
-                                "[BLOCKED TOOL] {PolicyName}: {Reason}",
-                                toolResult.AuditEntry.PolicyName,
-                                toolResult.Reason);
-                            Console.WriteLine($"[BLOCKED TOOL] {toolResult.AuditEntry.PolicyName}: {toolResult.Reason}");
-                            return "Tool call blocked by governance policy.";
-                        }
-                    });
-        }
-
-        var aiAgent = CreateAgent();
-
-        Console.WriteLine("\n=== Agent Run 1 ===");
-        using (var activity = ActivitySource.StartActivity("AgentRun", ActivityKind.Client))
-        {
-            activity?.SetTag("query", "What is the weather in Seattle?");
-            activity?.SetTag("run.number", 1);
-            logger.LogInformation("Starting Agent Run 1: What is the weather in Seattle?");
-            var response1 = await aiAgent.RunAsync("What is the weather in Seattle?");
-            PrintResponse(response1);
-            logger.LogInformation("Completed Agent Run 1");
-        }
-
-        Console.WriteLine("\n=== Agent Run 2 ===");
-        using (var activity = ActivitySource.StartActivity("AgentRun", ActivityKind.Client))
-        {
-            activity?.SetTag("query", "What time is it in Tokyo?");
-            activity?.SetTag("run.number", 2);
-            logger.LogInformation("Starting Agent Run 2: What time is it in Tokyo?");
-            var response2 = await aiAgent.RunAsync("What time is it in Tokyo?");
-            PrintResponse(response2);
-            logger.LogInformation("Completed Agent Run 2");
-        }
-
-        Console.WriteLine("\n=== Agent Run 3 (New Allow Example) ===");
-        using (var activity = ActivitySource.StartActivity("AgentRun", ActivityKind.Client))
-        {
-            activity?.SetTag("query", "Where is Paris located?");
-            activity?.SetTag("run.number", 3);
-            logger.LogInformation("Starting Agent Run 3: Where is Paris located?");
-            var response3 = await aiAgent.RunAsync("Where is Paris located?");
-            PrintResponse(response3);
-            logger.LogInformation("Completed Agent Run 3");
-        }
-
-        Console.WriteLine("\n=== Direct Governance Demo - Allow Example ===");
-        using (var activity = ActivitySource.StartActivity("DirectGovernanceEvaluation", ActivityKind.Internal))
-        {
-            activity?.SetTag("tool.name", "GetLocation");
-            activity?.SetTag("decision", "allow");
-            var allowed = kernel.EvaluateToolCall(
-                agent.Did,
-                "GetLocation",
-                new Dictionary<string, object>
-                {
-                    ["city"] = "London"
+                        logger.LogWarning(
+                            "[BLOCKED TOOL] {PolicyName}: {Reason}",
+                            toolResult.AuditEntry.PolicyName,
+                            toolResult.Reason);
+                        Console.WriteLine($"[BLOCKED TOOL] {toolResult.AuditEntry.PolicyName}: {toolResult.Reason}");
+                        return "Tool call blocked by governance policy.";
+                    }
                 });
 
-            logger.LogInformation(
-                "Direct governance evaluation: GetLocation allowed={Allowed} reason={Reason}",
-                allowed.Allowed,
-                allowed.Reason);
-            Console.WriteLine($"GetLocation call allowed? {allowed.Allowed}");
-            Console.WriteLine($"GetLocation call reason: {allowed.Reason}");
-        }
+    private static async Task RunAgentQuery(AIAgent agent, string query, int runNumber, ILogger logger)
+    {
+        Console.WriteLine($"\n=== Agent Run {runNumber} ===");
+        using var activity = ActivitySource.StartActivity("AgentRun", ActivityKind.Client);
+        activity?.SetTag("query", query);
+        activity?.SetTag("run.number", runNumber);
+        logger.LogInformation("Starting Agent Run {RunNumber}: {Query}", runNumber, query);
+        var response = await agent.RunAsync(query);
+        PrintResponse(response);
+        logger.LogInformation("Completed Agent Run {RunNumber}", runNumber);
+    }
 
-        Console.WriteLine("\n=== Direct Governance Demo - Deny Example ===");
-        using (var activity = ActivitySource.StartActivity("DirectGovernanceEvaluation", ActivityKind.Internal))
-        {
-            activity?.SetTag("tool.name", "execute_shell");
-            activity?.SetTag("decision", "deny");
-            var blocked = kernel.EvaluateToolCall(
-                agent.Did,
-                "execute_shell",
-                new Dictionary<string, object>
-                {
-                    ["cmd"] = "rm -rf /"
-                });
+    private static void EvaluateDirectGovernance(
+        GovernanceKernel kernel,
+        string agentDid,
+        string toolName,
+        Dictionary<string, object> args,
+        ILogger logger,
+        bool expectAllow)
+    {
+        var title = expectAllow ? "Allow Example" : "Deny Example";
+        Console.WriteLine($"\n=== Direct Governance Demo - {title} ===");
 
-            logger.LogWarning(
-                "Direct governance evaluation: execute_shell allowed={Allowed} reason={Reason}",
-                blocked.Allowed,
-                blocked.Reason);
-            Console.WriteLine($"Blocked call allowed? {blocked.Allowed}");
-            Console.WriteLine($"Blocked call reason: {blocked.Reason}");
-        }
+        using var activity = ActivitySource.StartActivity("DirectGovernanceEvaluation", ActivityKind.Internal);
+        activity?.SetTag("tool.name", toolName);
+        activity?.SetTag("decision", expectAllow ? "allow" : "deny");
 
+        var result = kernel.EvaluateToolCall(agentDid, toolName, args);
+
+        var logAction = expectAllow
+            ? (Action<string, bool, string>)((msg, allowed, reason) => logger.LogInformation(msg, allowed, reason))
+            : ((msg, allowed, reason) => logger.LogWarning(msg, allowed, reason));
+
+        logAction(
+            $"Direct governance evaluation: {toolName} allowed={{Allowed}} reason={{Reason}}",
+            result.Allowed,
+            result.Reason);
+
+        Console.WriteLine($"{toolName} call allowed? {result.Allowed}");
+        Console.WriteLine($"{toolName} call reason: {result.Reason}");
+    }
+
+    private static async Task FlushTelemetry(
+        MeterProvider? meterProvider,
+        TracerProvider? tracerProvider,
+        ILoggerFactory? loggerFactory,
+        ILogger logger)
+    {
         Console.WriteLine();
         Console.WriteLine("Telemetry is exported through the Azure Monitor OpenTelemetry exporter.");
         Console.WriteLine("Audit events are appended to a JSONL blob in Azure Storage.");
 
-        // Flush telemetry to Application Insights and wait for completion
         Console.WriteLine("\n=== Flushing Telemetry to Application Insights ===");
         logger.LogInformation("Starting telemetry flush to Application Insights");
+
         Console.WriteLine("Flushing metrics...");
         meterProvider?.ForceFlush();
         Console.WriteLine("Flushing traces...");
@@ -269,11 +252,12 @@ internal static class Program
         Console.WriteLine("Waiting 5 seconds for data transmission...");
         await Task.Delay(TimeSpan.FromSeconds(5));
         Console.WriteLine("✓ Telemetry flush complete.");
+
         Console.WriteLine("\nCheck Application Insights for:");
-        Console.WriteLine($"  - Metrics: customMetrics table");
-        Console.WriteLine($"  - Traces: traces/dependencies tables");
-        Console.WriteLine($"  - Logs: traces table (severityLevel column)");
-        Console.WriteLine($"  - Time range: Last 30 minutes");
+        Console.WriteLine("  - Metrics: customMetrics table");
+        Console.WriteLine("  - Traces: traces/dependencies tables");
+        Console.WriteLine("  - Logs: traces table (severityLevel column)");
+        Console.WriteLine("  - Time range: Last 30 minutes");
     }
 
     [Description("Get weather information for a location.")]

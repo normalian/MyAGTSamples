@@ -42,9 +42,19 @@ dotnet run
 
 | File | Purpose |
 |------|---------|
-| `Program.cs` | Creates the agent, kernel, Blob audit sink, and Application Insights exporter. |
-| `BlobAuditSink.cs` | Synchronous append-blob writer used by the audit callback. |
+| `Program.cs` | Main program with refactored helper methods for clean separation of concerns. |
+| `AppConfiguration.cs` | Configuration management loaded from environment variables. |
+| `BlobAuditSink.cs` | Thread-safe append-blob writer for audit logs. |
 | `policies/default.yaml` | Policy file that allows the weather/time tools and blocks a shell tool. |
+
+### Code Structure
+
+The code has been refactored for maintainability:
+
+- **Configuration Management**: `AppConfiguration` class encapsulates environment variable loading and credential creation
+- **Separation of Concerns**: Each responsibility (telemetry setup, agent creation, governance evaluation) is in its own method
+- **Reduced Duplication**: Common patterns extracted into reusable helper methods (`RunAgentQuery`, `EvaluateDirectGovernance`)
+- **Type Safety**: `TelemetryProviders` record type for returning multiple disposable resources
 
 ### Governance Policy
 

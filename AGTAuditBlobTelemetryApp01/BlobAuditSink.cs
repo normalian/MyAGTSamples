@@ -13,7 +13,7 @@ internal sealed class BlobAuditSink : IDisposable
     private readonly SemaphoreSlim _gate = new(1, 1);
     private bool _initialized;
 
-    public BlobAuditSink(string storageAccountUri, AzureCliCredential credential, string containerName, string blobName)
+    public BlobAuditSink(string storageAccountUri, DefaultAzureCredential credential, string containerName, string blobName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(storageAccountUri);
         ArgumentNullException.ThrowIfNull(credential);
