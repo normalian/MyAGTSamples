@@ -2,21 +2,23 @@
 
 Sample .NET console applications for Microsoft Agent Governance scenarios.
 
-This repository includes five focused examples that cover policy evaluation, agent identity and trust, Microsoft Agent Framework (MAF) integration, and audit/telemetry export.
+This repository includes seven focused examples that cover policy evaluation, agent identity and trust, Microsoft Agent Framework (MAF) integration, and audit/telemetry export.
 
 ## What's in this repository
 
 | Project | Focus | Target Framework |
 |---|---|---|
-| `AGTPolicyApp01` | Basic policy-driven tool call evaluation with a local YAML policy | `net9.0` |
-| `AGTPolicyWithMAFApp02` | MAF + Azure OpenAI with governance middleware and tool blocking | `net9.0` |
-| `AGTIdentityApp01` | Agent identity (DID/public key) and trust score basics | `net9.0` |
-| `AGTIdentityWithMAFApp02` | Trust-score-aware tool execution in a MAF agent flow | `net9.0` |
+| `AGTPolicyApp01` | Basic policy-driven tool call evaluation with a local YAML policy | `net10.0` |
+| `AGTOpaPolicyApp01` | OPA/Rego policy evaluation for tool call governance | `net10.0` |
+| `AGTCedarPolicyApp01` | Cedar policy evaluation for tool call governance | `net10.0` |
+| `AGTPolicyWithMAFApp02` | MAF + Azure OpenAI with governance middleware and tool blocking | `net10.0` |
+| `AGTIdentityApp01` | Agent identity (DID/public key) and trust score basics | `net10.0` |
+| `AGTIdentityWithMAFApp02` | Trust-score-aware tool execution in a MAF agent flow | `net10.0` |
 | `AGTAuditBlobTelemetryApp01` | Governance audit to Azure Blob + telemetry to Application Insights | `net8.0` |
 
 ## Solution structure
 
-- `MyAGTSamples.sln` contains all five projects above.
+- `MyAGTSamples.sln` contains all seven projects above.
 - Policy files are under each project's `policies/` folder where applicable.
 - `AGTAuditBlobTelemetryApp01` also includes `BlobAuditSink.cs` and a project-level README with deep details.
 
@@ -57,18 +59,32 @@ Behavior:
 - Evaluates sample tool calls (for example `file_write`, `http_request`)
 - Prints allow/deny results
 
-### 2) AGTIdentityApp01
+### 2) AGTOpaPolicyApp01
 
 ```powershell
-dotnet run --project AGTIdentityApp01/AGTIdentityApp01.csproj
+dotnet run --project AGTOpaPolicyApp01/AGTOpaPolicyApp01.csproj
 ```
 
 Behavior:
-- Creates an agent identity
-- Prints DID/public key/status
-- Loads trust score from a local file trust store
+- Loads OPA/Rego policy from `AGTOpaPolicyApp01/policies/toolcall.rego`
+- Evaluates sample tool calls (`http_request`, `execute_shell`, `file_read`)
+- Demonstrates blocking `execute_shell` tool via Rego policy
+- Prints allow/deny results
 
-### 3) AGTPolicyWithMAFApp02
+### 3) AGTCedarPolicyApp01
+
+```powershell
+dotnet run --project AGTCedarPolicyApp01/AGTCedarPolicyApp01.csproj
+```
+
+Behavior:
+- Loads Cedar policy (inline in code)
+- Evaluates sample tool calls (`http_request`, `execute_shell`, `file_read`)
+- Demonstrates basic Cedar policy syntax with `PolicyEngine.LoadCedar()`
+- Prints allow/deny results
+- Note: For tool-specific filtering, YAML or OPA policies offer richer support
+
+### 4) AGTPolicyWithMAFApp02
 
 Required environment variables:
 - `AZURE_OPENAI_ENDPOINT`
@@ -85,7 +101,18 @@ Behavior:
 - Applies policy from `AGTPolicyWithMAFApp02/policies/default.yaml`
 - Demonstrates a blocked `GetWeather` call and a normal non-tool response
 
-### 4) AGTIdentityWithMAFApp02
+### 5) AGTIdentityApp01
+
+```powershell
+dotnet run --project AGTIdentityApp01/AGTIdentityApp01.csproj
+```
+
+Behavior:
+- Creates an agent identity
+- Prints DID/public key/status
+- Loads trust score from a local file trust store
+
+### 6) AGTIdentityWithMAFApp02
 
 Required environment variables:
 - `AZURE_OPENAI_ENDPOINT`
@@ -102,7 +129,7 @@ Behavior:
 - Starts at trust score 500, then applies a penalty
 - Shows first tool call allowed and second tool call blocked
 
-### 5) AGTAuditBlobTelemetryApp01
+### 7) AGTAuditBlobTelemetryApp01
 
 Required environment variables:
 - `AZURE_OPENAI_ENDPOINT`
@@ -130,6 +157,8 @@ Behavior:
 | File | Default action | Notable rule |
 |---|---|---|
 | `AGTPolicyApp01/policies/default.yaml` | `deny` | Rate limits `http_request` at `100/minute` |
+| `AGTOpaPolicyApp01/policies/toolcall.rego` | `deny` | Allows all tools except `execute_shell` |
+| `AGTCedarPolicyApp01/policies/toolcall.cedar` | N/A (inline in code) | Basic `permit` policy for demonstration |
 | `AGTPolicyWithMAFApp02/policies/default.yaml` | `allow` | Denies `GetWeather` |
 | `AGTIdentityWithMAFApp02/policies/trust-based.yaml` | `allow` | Denies calls when `trust_score < 500` |
 | `AGTAuditBlobTelemetryApp01/policies/default.yaml` | `deny` | Allows specific tools and denies `execute_shell` |
