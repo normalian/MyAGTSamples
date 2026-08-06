@@ -63,7 +63,7 @@ class Program
         var endpoint = Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT")
             ?? throw new InvalidOperationException("AZURE_OPENAI_ENDPOINT is not set.");
         var deploymentName = Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT_NAME")
-            ?? "gpt-4.1-mini";
+            ?? "gpt-5-mini";
 
         // ========================================
         // 1. Create Agent Identity with Trust Score

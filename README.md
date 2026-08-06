@@ -14,7 +14,7 @@ This repository includes seven focused examples that cover policy evaluation, ag
 | `AGTPolicyWithMAFApp02` | MAF + Azure OpenAI with governance middleware and tool blocking | `net10.0` |
 | `AGTIdentityApp01` | Agent identity (DID/public key) and trust score basics | `net10.0` |
 | `AGTIdentityWithMAFApp02` | Trust-score-aware tool execution in a MAF agent flow | `net10.0` |
-| `AGTAuditBlobTelemetryApp01` | Governance audit to Azure Blob + telemetry to Application Insights | `net8.0` |
+| `AGTAuditBlobTelemetryApp01` | Governance audit to Azure Blob + telemetry to Application Insights | `net10.0` |
 
 ## Solution structure
 
@@ -88,7 +88,7 @@ Behavior:
 
 Required environment variables:
 - `AZURE_OPENAI_ENDPOINT`
-- `AZURE_OPENAI_DEPLOYMENT_NAME` (optional, default in code: `gpt-4.1-mini`)
+- `AZURE_OPENAI_DEPLOYMENT_NAME` (optional, default in code: `gpt-5-mini`)
 
 Run:
 
@@ -116,7 +116,7 @@ Behavior:
 
 Required environment variables:
 - `AZURE_OPENAI_ENDPOINT`
-- `AZURE_OPENAI_DEPLOYMENT_NAME` (optional, default in code: `gpt-4.1-mini`)
+- `AZURE_OPENAI_DEPLOYMENT_NAME` (optional, default in code: `gpt-5-mini`)
 
 Run:
 
@@ -133,7 +133,7 @@ Behavior:
 
 Required environment variables:
 - `AZURE_OPENAI_ENDPOINT`
-- `AZURE_OPENAI_DEPLOYMENT` (optional, default in code: `gpt-4o-mini`)
+- `AZURE_OPENAI_DEPLOYMENT` (optional, default in code: `gpt-5-mini`)
 - `APPLICATIONINSIGHTS_CONNECTION_STRING`
 - `AZURE_STORAGE_ACCOUNT_NAME`
 

@@ -19,7 +19,7 @@ internal sealed record AppConfiguration(
     public static AppConfiguration LoadFromEnvironment()
     {
         var endpoint = GetRequiredEnvironmentVariable("MS_FOUNDRY_ENDPOINT");
-        var deploymentName = Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT") ?? "gpt-5.4-mini";
+        var deploymentName = Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT") ?? "gpt-5-mini";
         var applicationInsightsConnectionString = GetRequiredEnvironmentVariable("APPLICATIONINSIGHTS_CONNECTION_STRING");
         var storageAccountName = GetRequiredEnvironmentVariable("AZURE_STORAGE_ACCOUNT_NAME");
         var storageAccountUri = $"https://{storageAccountName}.blob.core.windows.net/";

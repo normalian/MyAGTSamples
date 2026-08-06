@@ -22,7 +22,7 @@ across two destinations:
 Set these before you run the sample:
 
 - `AZURE_OPENAI_ENDPOINT`
-- `AZURE_OPENAI_DEPLOYMENT_NAME` or leave it unset to use `gpt-4.1-mini`
+- `AZURE_OPENAI_DEPLOYMENT_NAME` or leave it unset to use `gpt-5-mini`
 - `APPLICATIONINSIGHTS_CONNECTION_STRING`
 - `AZURE_STORAGE_CONNECTION_STRING`
 
