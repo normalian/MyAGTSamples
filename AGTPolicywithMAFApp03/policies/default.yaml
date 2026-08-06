@@ -1,0 +1,39 @@
+apiVersion: governance.toolkit/v1
+version: "1.0"
+name: governed-file-access-policy
+default_action: allow
+rules:
+  - name: allow-file-access-read
+    condition: "tool_name == 'file_access_read'"
+    action: allow
+    priority: 10
+
+  - name: allow-file-access-ls
+    condition: "tool_name == 'file_access_ls'"
+    action: allow
+    priority: 10
+
+  - name: allow-file-access-grep
+    condition: "tool_name == 'file_access_grep'"
+    action: allow
+    priority: 10
+
+  - name: deny-file-access-write
+    condition: "tool_name == 'file_access_write'"
+    action: deny
+    priority: 100
+
+  - name: deny-file-access-replace
+    condition: "tool_name == 'file_access_replace'"
+    action: deny
+    priority: 100
+
+  - name: deny-file-access-replace-lines
+    condition: "tool_name == 'file_access_replace_lines'"
+    action: deny
+    priority: 100
+
+  - name: deny-file-access-delete
+    condition: "tool_name == 'file_access_delete'"
+    action: deny
+    priority: 100

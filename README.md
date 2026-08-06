@@ -2,7 +2,7 @@
 
 Sample .NET console applications for Microsoft Agent Governance scenarios.
 
-This repository includes seven focused examples that cover policy evaluation, agent identity and trust, Microsoft Agent Framework (MAF) integration, and audit/telemetry export.
+This repository includes eight focused examples that cover policy evaluation, agent identity and trust, Microsoft Agent Framework (MAF) integration, Agent Framework Harness file access, and audit/telemetry export.
 
 ## What's in this repository
 
@@ -15,17 +15,18 @@ This repository includes seven focused examples that cover policy evaluation, ag
 | `AGTIdentityApp01` | Agent identity (DID/public key) and trust score basics | `net10.0` |
 | `AGTIdentityWithMAFApp02` | Trust-score-aware tool execution in a MAF agent flow | `net10.0` |
 | `AGTAuditBlobTelemetryApp01` | Governance audit to Azure Blob + telemetry to Application Insights | `net10.0` |
+| `AGTPolicywithMAFApp03` | Agent Framework Harness file access with governed read-only operations | `net10.0` |
 
 ## Solution structure
 
-- `MyAGTSamples.sln` contains all seven projects above.
+- `MyAGTSamples.sln` contains all eight projects above.
 - Policy files are under each project's `policies/` folder where applicable.
 - `AGTAuditBlobTelemetryApp01` also includes `BlobAuditSink.cs` and a project-level README with deep details.
 
 ## Prerequisites
 
 1. .NET SDKs:
-   - .NET 9 SDK
+   - .NET 10 SDK
 2. Azure CLI (`az`) signed in when running MAF/OpenAI samples that use `AzureCliCredential`.
 3. Access to Azure OpenAI (for MAF/OpenAI-based projects).
 
@@ -112,7 +113,25 @@ Behavior:
 - Prints DID/public key/status
 - Loads trust score from a local file trust store
 
-### 6) AGTIdentityWithMAFApp02
+### 6) AGTPolicywithMAFApp03
+
+Required environment variables:
+- `AZURE_OPENAI_ENDPOINT`
+- `AZURE_OPENAI_DEPLOYMENT_NAME` (optional, default in code: `gpt-5-mini`)
+
+Run:
+
+```powershell
+dotnet run --project AGTPolicywithMAFApp03/AGTPolicywithMAFApp03.csproj
+```
+
+Behavior:
+- Uses Agent Framework Harness `FileAccessProvider` tools for the sample files
+- Allows listing, reading, and searching files
+- Blocks writing, replacing, and deleting files through an Agent Governance Toolkit policy
+- Uses separate Harness `Name` and governance `DefaultAgentId` values; see the project README for details
+
+### 7) AGTIdentityWithMAFApp02
 
 Required environment variables:
 - `AZURE_OPENAI_ENDPOINT`
@@ -129,7 +148,7 @@ Behavior:
 - Starts at trust score 500, then applies a penalty
 - Shows first tool call allowed and second tool call blocked
 
-### 7) AGTAuditBlobTelemetryApp01
+### 8) AGTAuditBlobTelemetryApp01
 
 Required environment variables:
 - `AZURE_OPENAI_ENDPOINT`
@@ -160,13 +179,14 @@ Behavior:
 | `AGTOpaPolicyApp01/policies/toolcall.rego` | `deny` | Allows all tools except `execute_shell` |
 | `AGTCedarPolicyApp01/policies/toolcall.cedar` | N/A (inline in code) | Basic `permit` policy for demonstration |
 | `AGTPolicyWithMAFApp02/policies/default.yaml` | `allow` | Denies `GetWeather` |
+| `AGTPolicywithMAFApp03/policies/default.yaml` | `allow` | Allows read-only file access and denies writes/deletes |
 | `AGTIdentityWithMAFApp02/policies/trust-based.yaml` | `allow` | Denies calls when `trust_score < 500` |
 | `AGTAuditBlobTelemetryApp01/policies/default.yaml` | `deny` | Allows specific tools and denies `execute_shell` |
 
 ## Common troubleshooting
 
 - Build fails due to SDK mismatch:
-  - Install missing .NET SDK version (8 and/or 9), then re-run `dotnet build`.
+  - Install the .NET 10 SDK, then re-run `dotnet build`.
 - Azure auth errors:
   - Run `az login` and verify the active subscription/tenant.
 - Environment variable errors:
